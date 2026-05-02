@@ -48,7 +48,7 @@ def run_write(cypher: str, params: dict = {}) -> list:
 
 # ── MCP server ────────────────────────────────────────────────────────────────
 mcp = FastMCP("shrag-apartment-tools")
-
+app = mcp.sse_app()
 
 # ─────────────────────────────────────────────────────────────────────────────
 # TOOL 1 — scan_apartment
