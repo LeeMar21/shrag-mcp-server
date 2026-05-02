@@ -1,26 +1,16 @@
-# custom_tools.py
-# ─────────────────────────────────────────────────────────────────────────────
 # SHRAG Custom MCP Server
-# Defines 5 self-contained tools. Each tool owns its own Cypher queries.
-# No inter-tool dependencies.
-#
-# Tools:
+# Defines 5 tools. Each tool owns its own Cypher queries:
 #   1. scan_apartment(apartment_id)
 #   2. explain_conflict(conflict_id)
 #   3. recommend_best_repair(conflict_id)
 #   4. apply_approved_repair(repair_id, repair_object)
 #   5. validate_repair(apartment_id, conflict_id)
-#
-# Run:  python custom_tools.py
 # ─────────────────────────────────────────────────────────────────────────────
-
 import os
 import json
 from dotenv import load_dotenv
 from neo4j import GraphDatabase
 from mcp.server.fastmcp import FastMCP
-
-# Load .env for local dev — no effect on Render (uses env vars directly)
 load_dotenv()
 
 # ── Neo4j connection ──────────────────────────────────────────────────────────
@@ -29,6 +19,7 @@ NEO4J_USERNAME = os.getenv("NEO4J_USERNAME")
 NEO4J_PASSWORD = os.getenv("NEO4J_PASSWORD")
 NEO4J_DATABASE = os.getenv("NEO4J_DATABASE")
 
+# Fail fast — crash immediately with a clear message if any var is missing
 _missing = [k for k, v in {
     "NEO4J_URI":      NEO4J_URI,
     "NEO4J_USERNAME": NEO4J_USERNAME,
@@ -39,7 +30,7 @@ _missing = [k for k, v in {
 if _missing:
     raise EnvironmentError(
         f"Missing required environment variables: {', '.join(_missing)}\n"
-        "Add them to your .env file or Render environment settings."
+        "Add them to your .env file."
     )
 
 driver = GraphDatabase.driver(
@@ -55,10 +46,8 @@ def run_write(cypher: str, params: dict = {}) -> list:
     with driver.session(database=NEO4J_DATABASE) as session:
         return session.run(cypher, **params).data()
 
-# ── MCP server — SSE transport for hosted deployment ─────────────────────────
-# SSE (Server-Sent Events) exposes the MCP server as a URL endpoint.
-# Streamlit and the Anthropic API connect to it via "type": "url".
-mcp = FastMCP("shrag-apartment-tools", transport="sse")
+# ── MCP server ────────────────────────────────────────────────────────────────
+mcp = FastMCP("shrag-apartment-tools")
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -588,9 +577,7 @@ def validate_repair(apartment_id: str, conflict_id: str) -> dict:
 
 
 # ── Entry point ───────────────────────────────────────────────────────────────
-# Render injects PORT as an environment variable.
-# host="0.0.0.0" makes the server reachable from outside the container.
 if __name__ == "__main__":
     port = int(os.getenv("PORT", 8000))
     print(f"Starting SHRAG MCP server on port {port}...")
-    mcp.run(host="0.0.0.0", port=port)
+    mcp.run(transport="sse", host="0.0.0.0", port=port)
